@@ -459,6 +459,11 @@ int Disk::ModeSense6(const DWORD *cdb, BYTE *buf)
 	}
 	size += pages_size;
 
+	if (size > 255) {
+		SetStatusCode(STATUS_INVALIDPRM);
+		return 0;
+	}
+
 	// Do not return more than ALLOCATION LENGTH bytes
 	if (size > length) {
 		size = length;
@@ -541,6 +546,11 @@ int Disk::ModeSense10(const DWORD *cdb, BYTE *buf, int max_length)
 	}
 	size += pages_size;
 
+	if (size > 65535) {
+		SetStatusCode(STATUS_INVALIDPRM);
+		return 0;
+	}
+
 	// Do not return more than ALLOCATION LENGTH bytes
 	if (size > length) {
 		size = length;
@@ -600,15 +610,8 @@ void Disk::AddFormatPage(map<int, vector<BYTE>>& pages, bool changeable) const
 {
 	vector<BYTE> buf(24);
 
-	// Page can be saved
-	buf[0] = 0x80;
-
-	// Show the number of bytes in the physical sector as changeable
-	// (though it cannot be changed in practice)
+	// No changeable area
 	if (changeable) {
-		buf[0xc] = 0xff;
-		buf[0xd] = 0xff;
-
 		pages[3] = buf;
 
 		return;
@@ -616,22 +619,34 @@ void Disk::AddFormatPage(map<int, vector<BYTE>>& pages, bool changeable) const
 
 	if (IsReady()) {
 		// Set the number of tracks in one zone to 8 (TODO)
-		buf[0x3] = 0x08;
+		buf[0x03] = 0x08;
 
 		// Set sector/track to 25 (TODO)
-		buf[0xa] = 0x00;
-		buf[0xb] = 0x19;
+		buf[0x0a] = 0x00;
+		buf[0x0b] = 0x19;
 
 		// Set the number of bytes in the physical sector
 		int size = 1 << disk.size;
-		buf[0xc] = (BYTE)(size >> 8);
-		buf[0xd] = (BYTE)size;
+		buf[0x0c] = (BYTE)(size >> 8);
+		buf[0x0d] = (BYTE)size;
+
+		// Interleave 1
+		buf[0x0e] = 0x00;
+		buf[0x0f] = 0x01;
+
+		// Track skew factor 11
+		buf[0x10] = 0x00;
+		buf[0x11] = 0x0b;
+
+		// Cylinder skew factor 20
+		buf[0x12] = 0x00;
+		buf[0x13] = 0x14;
 	}
 
-	// Set removable attribute
-	if (IsRemovable()) {
-		buf[20] = 0x20;
-	}
+	buf[20] = IsRemovable() ? 0x20 : 0x00;
+
+	// Hard-sectored
+	buf[20] |= 0x40;
 
 	pages[3] = buf;
 }
@@ -653,22 +668,45 @@ void Disk::AddDrivePage(map<int, vector<BYTE>>& pages, bool changeable) const
 		uint32_t cylinder = disk.blocks;
 		cylinder >>= 3;
 		cylinder /= 25;
-		buf[0x2] = (BYTE)(cylinder >> 16);
-		buf[0x3] = (BYTE)(cylinder >> 8);
-		buf[0x4] = (BYTE)cylinder;
+		buf[0x02] = (BYTE)(cylinder >> 16);
+		buf[0x03] = (BYTE)(cylinder >> 8);
+		buf[0x04] = (BYTE)cylinder;
 
 		// Fix the head at 8
-		buf[0x5] = 0x8;
+		buf[0x05] = 0x8;
+
+		// Medium rotation rate 7200
+		buf[0x14] = 0x1c;
+		buf[0x15] = 0x20;
 	}
 
 	pages[4] = buf;
 }
 
-void Disk::AddCachePage(map<int, vector<BYTE>>& pages, bool) const
+void Disk::AddCachePage(map<int, vector<BYTE>>& pages, bool changeable) const
 {
 	vector<BYTE> buf(12);
 
-	// Only read cache is valid, no prefetch
+	// No changeable area
+	if (changeable) {
+		pages[8] = buf;
+
+		return;
+	}
+
+	// Only read cache is valid
+
+	// Disable pre-fetch transfer length
+	buf[0x04] = 0xff;
+	buf[0x05] = 0xff;
+
+	// Maximum pre-fetch
+	buf[0x08] = 0xff;
+	buf[0x09] = 0xff;
+
+	// Maximum pre-fetch ceiling
+	buf[0x0a] = 0xff;
+	buf[0x0b] = 0xff;
 
 	pages[8] = buf;
 }
@@ -783,7 +821,6 @@ bool Disk::Write(const DWORD *cdb, const BYTE *buf, DWORD block)
 	return true;
 }
 
-// TODO For SCSI the specification mandates that the block address is verified
 void Disk::Seek(SASIDEV *controller)
 {
 	if (!CheckReady()) {
@@ -794,20 +831,21 @@ void Disk::Seek(SASIDEV *controller)
 	controller->Status();
 }
 
-//---------------------------------------------------------------------------
-//
-//	SEEK(6)
-//	Does not check LBA (SASI IOCS)
-//
-//---------------------------------------------------------------------------
 void Disk::Seek6(SASIDEV *controller)
 {
-	Seek(controller);
+	// For SASI do not check LBA (SASI IOCS)
+	uint64_t start;
+	if (IsSASIHD() || GetStartAndCount(controller, start, ctrl->blocks, SEEK6)) {
+		Seek(controller);
+	}
 }
 
 void Disk::Seek10(SASIDEV *controller)
 {
-	Seek(controller);
+	uint64_t start;
+	if (GetStartAndCount(controller, start, ctrl->blocks, SEEK10)) {
+		Seek(controller);
+	}
 }
 
 bool Disk::StartStop(const DWORD *cdb)
@@ -1003,7 +1041,7 @@ bool Disk::ValidateBlockAddress(SASIDEV *controller, access_mode mode)
 
 bool Disk::GetStartAndCount(SASIDEV *controller, uint64_t& start, uint32_t& count, access_mode mode)
 {
-	if (mode == RW6) {
+	if (mode == RW6 || mode == SEEK6) {
 		start = ctrl->cmd[1] & 0x1f;
 		start <<= 8;
 		start |= ctrl->cmd[2];
@@ -1044,26 +1082,29 @@ bool Disk::GetStartAndCount(SASIDEV *controller, uint64_t& start, uint32_t& coun
 			count <<= 8;
 			count |= ctrl->cmd[13];
 		}
-		else {
+		else if (mode != SEEK6 && mode != SEEK10) {
 			count = ctrl->cmd[7];
 			count <<= 8;
 			count |= ctrl->cmd[8];
 		}
+		else {
+			count = 0;
+		}
 	}
 
-	LOGTRACE("%s READ/WRITE/VERIFY command record=$%08X blocks=%d", __PRETTY_FUNCTION__, (uint32_t)start, count);
+	LOGTRACE("%s READ/WRITE/VERIFY/SEEK command record=$%08X blocks=%d", __PRETTY_FUNCTION__, (uint32_t)start, count);
 
 	// Check capacity
 	uint64_t capacity = GetBlockCount();
 	if (start > capacity || start + count > capacity) {
 		LOGTRACE("%s", ("Capacity of " + to_string(capacity) + " blocks exceeded: Trying to access block "
-				+ to_string(start) + ", block count " + to_string(ctrl->blocks)).c_str());
+				+ to_string(start) + ", block count " + to_string(count)).c_str());
 		controller->Error(sense_key::ILLEGAL_REQUEST, asc::LBA_OUT_OF_RANGE);
 		return false;
 	}
 
 	// Do not process 0 blocks
-	if (!count) {
+	if (!count && (mode != SEEK6 && mode != SEEK10)) {
 		LOGTRACE("NOT processing 0 blocks");
 		controller->Status();
 		return false;

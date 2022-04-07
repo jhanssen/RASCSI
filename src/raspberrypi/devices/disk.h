@@ -36,7 +36,7 @@ using namespace std;
 class Disk : public ModePageDevice, ScsiBlockCommands
 {
 private:
-	enum access_mode { RW6, RW10, RW16 };
+	enum access_mode { RW6, RW10, RW16, SEEK6, SEEK10 };
 
 	// The supported configurable block sizes, empty if not configurable
 	unordered_set<uint32_t> sector_sizes;
@@ -71,6 +71,8 @@ public:
 	bool Eject(bool) override;
 
 private:
+	friend class SASIDEV;
+
 	typedef ModePageDevice super;
 
 	// Commands covered by the SCSI specification (see https://www.t10.org/drafts.htm)
@@ -94,7 +96,7 @@ private:
 	void Verify16(SASIDEV *);
 	void Seek(SASIDEV *);
 	void Seek10(SASIDEV *);
-	void ReadCapacity10(SASIDEV *) override;
+	virtual void ReadCapacity10(SASIDEV *) override;
 	void ReadCapacity16(SASIDEV *) override;
 	void Reserve(SASIDEV *);
 	void Release(SASIDEV *);

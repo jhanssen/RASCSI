@@ -82,15 +82,19 @@ void PrimaryDevice::ReportLuns(SASIDEV *controller)
 	memset(buf, 0, allocation_length);
 
 	int size = 0;
-	for (int lun = 0; lun < controller->GetCtrl()->device->GetSupportedLuns(); lun++) {
-		if (controller->GetCtrl()->unit[lun]) {
-			size += 8;
-			buf[size + 7] = lun;
-		}
-	}
 
-	buf[2] = size >> 8;
-	buf[3] = size;
+	// Only SELECT REPORT mode 0 is supported
+	if (!ctrl->cmd[2]) {
+		for (int lun = 0; lun < controller->GetCtrl()->device->GetSupportedLuns(); lun++) {
+			if (controller->GetCtrl()->unit[lun]) {
+				size += 8;
+				buf[size + 7] = lun;
+			}
+		}
+
+		buf[2] = size >> 8;
+		buf[3] = size;
+	}
 
 	size += 8;
 
@@ -123,8 +127,6 @@ void PrimaryDevice::RequestSense(SASIDEV *controller)
 
     memcpy(ctrl->buffer, buf.data(), allocation_length);
     ctrl->length = allocation_length;
-
-    LOGTRACE("%s Status $%02X, Sense Key $%02X, ASC $%02X",__PRETTY_FUNCTION__, ctrl->status, ctrl->buffer[2], ctrl->buffer[12]);
 
     controller->DataIn();
 }
@@ -200,6 +202,8 @@ vector<BYTE> PrimaryDevice::RequestSense(int)
 	buf[7] = 10;
 	buf[12] = GetStatusCode() >> 8;
 	buf[13] = GetStatusCode();
+
+	LOGTRACE("%s Status $%02X, Sense Key $%02X, ASC $%02X",__PRETTY_FUNCTION__, ctrl->status, ctrl->buffer[2], ctrl->buffer[12]);
 
 	return buf;
 }
