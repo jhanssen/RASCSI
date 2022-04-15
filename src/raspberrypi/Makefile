@@ -101,7 +101,10 @@ SRC_RASCSI = \
 	rascsi_response.cpp \
 	rasutil.cpp \
 	protobuf_util.cpp \
-	localizer.cpp
+	localizer.cpp \
+	bpi_common.cpp\
+	bpi_c_gpio.cpp\
+	cpuinfo.cpp
 SRC_RASCSI += $(shell find ./controllers -name '*.cpp')
 SRC_RASCSI += $(shell find ./devices -name '*.cpp')
 SRC_RASCSI += $(SRC_PROTOBUF)
@@ -110,7 +113,10 @@ SRC_SCSIMON = \
 	scsimon.cpp \
 	scsi.cpp \
 	gpiobus.cpp \
-	rascsi_version.cpp
+	bpi_common.cpp\
+	bpi_c_gpio.cpp\
+	rascsi_version.cpp \
+	cpuinfo.cpp
 SRC_SCSIMON += $(shell find ./monitor -name '*.cpp')
 
 SRC_RASCTL = \
@@ -127,6 +133,9 @@ SRC_RASDUMP = \
 	rasdump.cpp \
 	scsi.cpp \
 	gpiobus.cpp \
+	bpi_common.cpp\
+	bpi_c_gpio.cpp\
+	cpuinfo.cpp \
 	filepath.cpp \
 	fileio.cpp\
 	rascsi_version.cpp
@@ -135,6 +144,9 @@ SRC_SASIDUMP = \
 	sasidump.cpp \
 	scsi.cpp \
 	gpiobus.cpp \
+	bpi_common.cpp\
+	bpi_c_gpio.cpp\
+	cpuinfo.cpp \
 	filepath.cpp \
 	fileio.cpp\
 	rascsi_version.cpp

@@ -15,6 +15,11 @@
 #include "config.h"
 #include "scsi.h"
 
+#define BPI_M2_BERRY (10)
+#define RPI_4        (4)
+#define RPI_2        (2)
+#define RPI_1        (1)
+
 //---------------------------------------------------------------------------
 //
 //	Connection method definitions
@@ -586,6 +591,10 @@ public:
 #endif	// USE_SEL_EVENT_ENABLE
 
 private:
+
+	BOOL setup_raspberry_pi(void* map, int fd);
+	BOOL setup_banana_pi(void* map, int fd);
+
 	// SCSI I/O signal control
 	void MakeTable();
 										// Create work data

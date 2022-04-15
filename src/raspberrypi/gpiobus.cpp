@@ -17,6 +17,28 @@
 
 #include "config.h"
 #include "log.h"
+// #include "rascsi.h"
+#include "cpuinfo.h"
+#include "bpi_c_gpio.h"
+
+#define SUNXI_GPIO_BASE		(0x01C20800)	
+#define BCM2708_PERI_BASE   (0x20000000)
+#define BCM2708_GPIO_BASE   (BCM2708_PERI_BASE + 0x200000)
+
+#define FSEL_OFFSET         0   // 0x0000
+#define SET_OFFSET          7   // 0x001c / 4
+#define CLR_OFFSET          10  // 0x0028 / 4
+#define PINLEVEL_OFFSET     13  // 0x0034 / 4
+#define EVENT_DETECT_OFFSET 16  // 0x0040 / 4
+#define RISING_ED_OFFSET    19  // 0x004c / 4
+#define FALLING_ED_OFFSET   22  // 0x0058 / 4
+#define HIGH_DETECT_OFFSET  25  // 0x0064 / 4
+#define LOW_DETECT_OFFSET   28  // 0x0070 / 4
+#define PULLUPDN_OFFSET     37  // 0x0094 / 4
+#define PULLUPDNCLK_OFFSET  38  // 0x0098 / 4
+
+#define PAGE_SIZE  (4*1024)
+#define BLOCK_SIZE (4*1024)
 
 #ifdef __linux__
 //---------------------------------------------------------------------------
@@ -47,9 +69,9 @@ DWORD bcm_host_get_peripheral_address(void)
 		address = get_dt_ranges("/proc/device-tree/soc/ranges", 8);
 	}
 	address = (address == (DWORD)~0) ? 0x20000000 : address;
-#if 0
-	printf("Peripheral address : 0x%lx\n", address);
-#endif
+
+	printf("Peripheral address : 0x%8x\n", address);
+
 	return address;
 }
 #endif // __linux__
@@ -76,71 +98,9 @@ DWORD bcm_host_get_peripheral_address(void)
 }
 #endif	// __NetBSD__
 
-GPIOBUS::GPIOBUS()
-{
-	actmode = TARGET;
-	baseaddr = 0;
-	gicc = 0;
-	gicd = 0;
-	gpio = 0;
-	level = 0;
-	pads = 0;
-	irpctl = 0;
-	qa7regs = 0;
-	signals = 0;
-	rpitype = 0;
-}
 
-GPIOBUS::~GPIOBUS()
-{
-}
-
-BOOL GPIOBUS::Init(mode_e mode)
-{
-#if defined(__x86_64__) || defined(__X86__)
-	// When we're running on x86, there is no hardware to talk to, so just return.
-	return true;
-#else
-	void *map;
-	int i;
-	int j;
-	int pullmode;
-	int fd;
-#ifdef USE_SEL_EVENT_ENABLE
-	struct epoll_event ev;
-#endif	// USE_SEL_EVENT_ENABLE
-
-	// Save operation mode
-	actmode = mode;
-
-	// Get the base address
-	baseaddr = (DWORD)bcm_host_get_peripheral_address();
-
-	// Open /dev/mem
-	fd = open("/dev/mem", O_RDWR | O_SYNC);
-	if (fd == -1) {
-        LOGERROR("Error: Unable to open /dev/mem. Are you running as root?");
-		return FALSE;
-	}
-
-	// Map peripheral region memory
-	map = mmap(NULL, 0x1000100, PROT_READ | PROT_WRITE, MAP_SHARED, fd, baseaddr);
-	if (map == MAP_FAILED) {
-        LOGERROR("Error: Unable to map memory");
-		close(fd);
-		return FALSE;
-	}
-
-	// Determine the type of raspberry pi from the base address
-	if (baseaddr == 0xfe000000) {
-		rpitype = 4;
-	} else if (baseaddr == 0x3f000000) {
-		rpitype = 2;
-	} else {
-		rpitype = 1;
-	}
-
-	// GPIO
+BOOL GPIOBUS::setup_raspberry_pi(void* map, int fd){
+		// GPIO
 	gpio = (DWORD *)map;
 	gpio += GPIO_OFFSET / sizeof(DWORD);
 	level = &gpio[GPIO_LEV_0];
@@ -176,6 +136,147 @@ BOOL GPIOBUS::Init(mode_e mode)
 	} else {
 		gicd = NULL;
 		gicc = NULL;
+	}
+	return TRUE;
+}
+
+BOOL GPIOBUS::setup_banana_pi(void* map, int fd){
+		// GPIO
+	gpio = (DWORD *)map;
+	gpio += GPIO_OFFSET / sizeof(DWORD);
+	level = &gpio[GPIO_LEV_0];
+
+	// PADS
+	pads = (DWORD *)map;
+	pads += PADS_OFFSET / sizeof(DWORD);
+
+	// System timer
+	SysTimer::Init(
+		(DWORD *)map + SYST_OFFSET / sizeof(DWORD),
+		(DWORD *)map + ARMT_OFFSET / sizeof(DWORD));
+
+	// Interrupt controller
+	irpctl = (DWORD *)map;
+	irpctl += IRPT_OFFSET / sizeof(DWORD);
+
+	// Quad-A7 control
+	qa7regs = (DWORD *)map;
+	qa7regs += QA7_OFFSET / sizeof(DWORD);
+
+	// Map GIC memory
+	if (rpitype == 4) {
+		map = mmap(NULL, 8192,
+			PROT_READ | PROT_WRITE, MAP_SHARED, fd, ARM_GICD_BASE);
+		if (map == MAP_FAILED) {
+			close(fd);
+			return FALSE;
+		}
+		gicd = (DWORD *)map;
+		gicc = (DWORD *)map;
+		gicc += (ARM_GICC_BASE - ARM_GICD_BASE) / sizeof(DWORD);
+	} else {
+		gicd = NULL;
+		gicc = NULL;
+	}
+	return TRUE;
+}
+
+GPIOBUS::GPIOBUS()
+{
+	actmode = TARGET;
+	baseaddr = 0;
+	gicc = 0;
+	gicd = 0;
+	gpio = 0;
+	level = 0;
+	pads = 0;
+	irpctl = 0;
+	qa7regs = 0;
+	signals = 0;
+	rpitype = 0;
+}
+
+GPIOBUS::~GPIOBUS()
+{
+}
+
+BOOL GPIOBUS::Init(mode_e mode)
+{
+#if defined(__x86_64__) || defined(__X86__)
+	// When we're running on x86, there is no hardware to talk to, so just return.
+	return true;
+#else
+	void *map;
+	int i;
+	int j;
+	int pullmode;
+	int fd;
+#ifdef USE_SEL_EVENT_ENABLE
+	struct epoll_event ev;
+#endif	// USE_SEL_EVENT_ENABLE
+
+	char cpu_revision[1024] = {'\0'};
+	char hw_revision[1024] = {'\0'};
+	(void)get_cpuinfo_revision(cpu_revision, hw_revision);
+
+	printf("hw: %s cpu: %s\n", hw_revision, cpu_revision);
+
+	// Save operation mode
+	actmode = mode;
+
+	// Get the base address
+	baseaddr = (DWORD)bcm_host_get_peripheral_address();
+
+	// Open /dev/mem
+	fd = open("/dev/mem", O_RDWR | O_SYNC);
+	if (fd == -1) {
+        LOGERROR("Error: Unable to open /dev/mem. Are you running as root?");
+		return FALSE;
+	}
+
+	// Map peripheral region memory
+	map = mmap(NULL, 0x1000100, PROT_READ | PROT_WRITE, MAP_SHARED, fd, baseaddr);
+	if (map == MAP_FAILED) {
+        LOGERROR("Error: Unable to map memory");
+		close(fd);
+		return FALSE;
+	}
+
+	// Determine the type of raspberry pi from the base address
+	if(baseaddr == SUNXI_GPIO_BASE){
+		rpitype = BPI_M2_BERRY;
+	} else if (baseaddr == 0xfe000000) {
+		rpitype = RPI_4;
+	} else if (baseaddr == 0x3f000000) {
+		rpitype = RPI_2;
+	} else {
+		rpitype = RPI_1;
+	}
+
+	if(rpitype == BPI_M2_BERRY)
+	{
+		// int result = setup_banana_pi(map, fd);
+		// if(result == FALSE){
+		// 	return FALSE;
+		// }
+		int result = bpi_c_gpio::setup();
+		if(result != BPI_SETUP_OK){
+			printf("BPI setup NOT OK\n");
+			return FALSE;
+		}
+		else
+		{
+			printf("BPI setup OK!\n");
+		}
+
+	}
+	else
+	{
+		
+		int result = setup_raspberry_pi(map, fd);
+		if(result == FALSE){
+			return FALSE;
+		}
 	}
 	close(fd);
 
