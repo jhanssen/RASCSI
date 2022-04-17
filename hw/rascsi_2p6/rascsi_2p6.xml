@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/akuker/Downloads/RASCSI/hw/rascsi_2p6/rascsi_2p6.kicad_sch</source>
-    <date>Wednesday, April 06, 2022 at 08:40:13 PM</date>
+    <date>Saturday, April 16, 2022 at 08:59:42 PM</date>
     <tool>Eeschema (6.0.0-0)</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -2498,6 +2498,10 @@
   </libraries>
   <nets>
     <net code="1" name="+3V3">
+      <node ref="IC1" pin="20" pinfunction="VCC" pintype="passive"/>
+      <node ref="IC2" pin="20" pinfunction="VCC" pintype="passive"/>
+      <node ref="IC3" pin="20" pinfunction="VCC" pintype="passive"/>
+      <node ref="IC4" pin="20" pinfunction="VCC" pintype="passive"/>
       <node ref="J1" pin="1" pinfunction="3V3" pintype="power_in"/>
       <node ref="J1" pin="17" pinfunction="3V3" pintype="power_in"/>
       <node ref="J4" pin="3" pinfunction="Pin_3" pintype="passive"/>
@@ -2523,10 +2527,6 @@
     </net>
     <net code="2" name="+5V">
       <node ref="D5" pin="2" pinfunction="A" pintype="passive"/>
-      <node ref="IC1" pin="20" pinfunction="VCC" pintype="passive"/>
-      <node ref="IC2" pin="20" pinfunction="VCC" pintype="passive"/>
-      <node ref="IC3" pin="20" pinfunction="VCC" pintype="passive"/>
-      <node ref="IC4" pin="20" pinfunction="VCC" pintype="passive"/>
       <node ref="J1" pin="2" pinfunction="5V" pintype="power_in"/>
       <node ref="J1" pin="4" pinfunction="5V" pintype="power_in"/>
       <node ref="J20" pin="1" pinfunction="1" pintype="passive"/>
