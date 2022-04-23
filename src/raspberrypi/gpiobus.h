@@ -14,6 +14,7 @@
 
 #include "config.h"
 #include "scsi.h"
+#include "gpio/systimer.h"
 
 #define BPI_M2_BERRY (10)
 #define RPI_4        (4)
@@ -676,32 +677,5 @@ private:
 	static const int SignalTable[19];	// signal table
 };
 
-//===========================================================================
-//
-//	System timer
-//
-//===========================================================================
-class SysTimer
-{
-public:
-	static void Init(DWORD *syst, DWORD *armt);
-										// Initialization
-	static DWORD GetTimerLow();
-										// Get system timer low byte
-	static DWORD GetTimerHigh();
-										// Get system timer high byte
-	static void SleepNsec(DWORD nsec);
-										// Sleep for N nanoseconds
-	static void SleepUsec(DWORD usec);
-										// Sleep for N microseconds
-
-private:
-	static volatile DWORD *systaddr;
-										// System timer address
-	static volatile DWORD *armtaddr;
-										// ARM timer address
-	static volatile DWORD corefreq;
-										// Core frequency
-};
 
 #endif	// gpiobus_h

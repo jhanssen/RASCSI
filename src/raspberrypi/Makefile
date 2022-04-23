@@ -64,6 +64,7 @@ RASCTL = rasctl
 RASDUMP = rasdump
 SASIDUMP = sasidump
 SCSIMON = scsimon
+GPIOTEST = gpiotest
 
 SYSTEMD_CONF = /etc/systemd/system/rascsi.service
 RSYSLOG_CONF = /etc/rsyslog.d/rascsi.conf
@@ -82,7 +83,8 @@ BIN_ALL = \
 	$(BINDIR)/$(RASCTL) \
 	$(BINDIR)/$(SCSIMON) \
 	$(BINDIR)/$(RASDUMP) \
-	$(BINDIR)/$(SASIDUMP)
+	$(BINDIR)/$(SASIDUMP) \
+	$(BINDIR)/$(GPIOTEST)
 
 SRC_PROTOC = \
 	rascsi_interface.proto
@@ -151,8 +153,19 @@ SRC_SASIDUMP = \
 	fileio.cpp\
 	rascsi_version.cpp
 
-vpath %.h ./ ./controllers ./devices ./monitor
-vpath %.cpp ./ ./controllers ./devices ./monitor
+SRC_GPIOTEST = \
+	scsi.cpp \
+	gpiobus.cpp \
+	gpiobus_bpi.cpp \
+	bpi_common.cpp\
+	bpi_c_gpio.cpp\
+	rascsi_version.cpp \
+	cpuinfo.cpp 
+SRC_GPIOTEST += $(shell find ./gpio -name '*.cpp')
+
+
+vpath %.h ./ ./controllers ./devices ./monitor ./gpio ./gpio/board
+vpath %.cpp ./ ./controllers ./devices ./monitor  ./gpio ./gpio/board
 vpath %.o ./$(OBJDIR)
 vpath ./$(BINDIR)
 
@@ -162,13 +175,14 @@ OBJ_RASCTL := $(addprefix $(OBJDIR)/,$(notdir $(SRC_RASCTL:%.cpp=%.o)))
 OBJ_RASDUMP := $(addprefix $(OBJDIR)/,$(notdir $(SRC_RASDUMP:%.cpp=%.o)))
 OBJ_SASIDUMP := $(addprefix $(OBJDIR)/,$(notdir $(SRC_SASIDUMP:%.cpp=%.o)))
 OBJ_SCSIMON := $(addprefix $(OBJDIR)/,$(notdir $(SRC_SCSIMON:%.cpp=%.o)))
+OBJ_GPIOTEST := $(addprefix $(OBJDIR)/,$(notdir $(SRC_GPIOTEST:%.cpp=%.o)))
 
 GEN_PROTOBUF := $(SRC_PROTOBUF) rascsi_interface.pb.h
 
 
 # The following will include all of the auto-generated dependency files (*.d)
 # if they exist. This will trigger a rebuild of a source file if a header changes
-ALL_DEPS := $(patsubst %.o,%.d,$(OBJ_RASCSI) $(OBJ_RASCTL) $(OBJ_SCSIMON))
+ALL_DEPS := $(patsubst %.o,%.d,$(OBJ_RASCSI) $(OBJ_RASCTL) $(OBJ_SCSIMON) $(OBJ_GPIOTEST))
 -include $(ALL_DEPS)
 
 $(OBJDIR) $(BINDIR):
@@ -209,14 +223,18 @@ $(BINDIR)/$(SASIDUMP): $(OBJ_SASIDUMP) | $(BINDIR)
 $(BINDIR)/$(SCSIMON): $(OBJ_SCSIMON) | $(BINDIR)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJ_SCSIMON) -lpthread
 
+$(BINDIR)/$(GPIOTEST): $(OBJ_GPIOTEST) | $(BINDIR)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJ_GPIOTEST) -lpthread
+
 
 # Phony rules for building individual utilities
-.PHONY: $(RASCSI) $(RASCTL) $(RASDUMP) $(SASIDUMP) $(SCSIMON)
+.PHONY: $(RASCSI) $(RASCTL) $(RASDUMP) $(SASIDUMP) $(SCSIMON) $(GPIOTEST)
 $(RASCSI)  : $(BINDIR)/$(RASCSI) 
 $(RASCTL)  : $(BINDIR)/$(RASCTL) 
 $(RASDUMP) : $(BINDIR)/$(RASDUMP) 
 $(SASIDUMP): $(BINDIR)/$(SASIDUMP) 
 $(SCSIMON) : $(BINDIR)/$(SCSIMON)
+$(GPIOTEST) : $(BINDIR)/$(GPIOTEST)
 
 
 ##   clean    : Remove all of the object files, intermediate 

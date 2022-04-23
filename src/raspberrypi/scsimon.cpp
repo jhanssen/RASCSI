@@ -22,6 +22,11 @@
 #include "monitor/sm_reports.h"
 #include "monitor/data_sample.h"
 
+#include "board/bpi-gpio.h"
+
+#include "bpi_c_gpio.h"
+#include "bpi_common.h"
+
 using namespace std;
 
 //---------------------------------------------------------------------------
@@ -53,7 +58,7 @@ using namespace std;
 static volatile bool running; // Running flag
 GPIOBUS *bus;                 // GPIO Bus
 
-DWORD buff_size = 1000000;
+DWORD buff_size = 10;
 data_capture *data_buffer;
 DWORD data_idx = 0;
 
@@ -99,7 +104,7 @@ void parse_arguments(int argc, char *argv[])
             buff_size = atoi(optarg);
             break;
         case 'i':
-            strncpy(input_file_name, optarg, sizeof(input_file_name)-1);
+            strncpy(input_file_name, optarg, sizeof(input_file_name) - 1);
             import_data = true;
             break;
         case 1:
@@ -115,7 +120,7 @@ void parse_arguments(int argc, char *argv[])
     if (optind < argc)
     {
         while (optind < argc)
-            strncpy(file_base_name, argv[optind++], sizeof(file_base_name)-1);
+            strncpy(file_base_name, argv[optind++], sizeof(file_base_name) - 1);
     }
 
     strcpy(vcd_file_name, file_base_name);
@@ -182,6 +187,7 @@ void Banner(int argc, char *argv[])
     LOGINFO("   %s - HTML file with summary of commands", html_file_name);
 }
 
+#define RPI_DISC_COUNT (40)
 //---------------------------------------------------------------------------
 //
 //	Initialization
@@ -189,30 +195,143 @@ void Banner(int argc, char *argv[])
 //---------------------------------------------------------------------------
 bool Init()
 {
-    // Interrupt handler settings
-    if (signal(SIGINT, KillHandler) == SIG_ERR)
-    {
-        return FALSE;
-    }
-    if (signal(SIGHUP, KillHandler) == SIG_ERR)
-    {
-        return FALSE;
-    }
-    if (signal(SIGTERM, KillHandler) == SIG_ERR)
-    {
-        return FALSE;
-    }
+    // // Interrupt handler settings
+    // if (signal(SIGINT, KillHandler) == SIG_ERR)
+    // {
+    //     return FALSE;
+    // }
+    // if (signal(SIGHUP, KillHandler) == SIG_ERR)
+    // {
+    //     return FALSE;
+    // }
+    // if (signal(SIGTERM, KillHandler) == SIG_ERR)
+    // {
+    //     return FALSE;
+    // }
 
-    // GPIO Initialization
-    bus = new GPIOBUS();
-    if (!bus->Init())
-    {
-        LOGERROR("Unable to intiailize the GPIO bus. Exiting....");
-        return false;
-    }
+    printf("Running setup...\n");
+    bpi_c_gpio::setup();
 
-    // Bus Reset
-    bus->Reset();
+    for (unsigned int i = 0; i < ARRAY_SIZE(pinTobcm_BPI_M2U); i++)
+    {
+        int disc = pinTobcm_BPI_M2U[i];
+        if (disc >= 0)
+        {
+            printf("++++Setup pin %d as gpio %d [%X]\n", i, disc, disc);
+            bpi_c_gpio::setup_gpio(disc, BPI_OUTPUT, BPI_PUD_UP);
+        }
+    }
+    printf("done\n\n");
+
+
+// pinTobcm_BPI_M2U
+
+    int data_pins[18] = {
+        PIN_DT0,PIN_DT1,PIN_DT2,PIN_DT3,
+        PIN_DT4,PIN_DT5,PIN_DT6,PIN_DT7,
+        PIN_DP,	PIN_ATN,PIN_RST,PIN_ACK,
+        PIN_REQ,PIN_MSG,PIN_CD,	PIN_IO,	
+        PIN_BSY,PIN_SEL,
+    };
+
+while(1){
+    printf("\nData Direction OUT\n");
+    bpi_c_gpio::output_gpio(pinTobcm_BPI_M2U[PIN_IND], !IND_IN);
+    bpi_c_gpio::output_gpio(pinTobcm_BPI_M2U[PIN_TAD], !TAD_IN);
+    bpi_c_gpio::output_gpio(pinTobcm_BPI_M2U[PIN_DTD], !PIN_DTD);
+
+    printf("\tSet all outputs high\n");
+    for(unsigned int pin_idx = 0; pin_idx<ARRAY_SIZE(data_pins); pin_idx++){
+        bpi_c_gpio::output_gpio(pinTobcm_BPI_M2U[data_pins[pin_idx]], BPI_HIGH);
+    }
+    sleep(2);
+
+    printf("\tSet all outputs low\n");
+    for(unsigned int pin_idx = 0; pin_idx<ARRAY_SIZE(data_pins); pin_idx++){
+        bpi_c_gpio::output_gpio(pinTobcm_BPI_M2U[data_pins[pin_idx]], BPI_LOW);
+    }
+    sleep(2);
+
+
+
+    printf("\n\nData Direction IN\n");
+    bpi_c_gpio::output_gpio(pinTobcm_BPI_M2U[PIN_IND], IND_IN);
+    bpi_c_gpio::output_gpio(pinTobcm_BPI_M2U[PIN_TAD], TAD_IN);
+    bpi_c_gpio::output_gpio(pinTobcm_BPI_M2U[PIN_DTD], DTD_IN);
+
+    printf("\tSet all outputs high\n");
+    for(unsigned int pin_idx = 0; pin_idx<ARRAY_SIZE(data_pins); pin_idx++){
+        bpi_c_gpio::output_gpio(pinTobcm_BPI_M2U[data_pins[pin_idx]], BPI_HIGH);
+    }
+    sleep(2);
+
+    printf("\tSet all outputs low\n");
+    for(unsigned int pin_idx = 0; pin_idx<ARRAY_SIZE(data_pins); pin_idx++){
+        bpi_c_gpio::output_gpio(pinTobcm_BPI_M2U[data_pins[pin_idx]], BPI_LOW);
+    }
+    sleep(2);
+}
+
+    exit(0);
+
+    for (unsigned int test_disc = 0; test_disc < RPI_DISC_COUNT; test_disc++)
+    {
+        if (physToGpio_BPI_M2U[test_disc] < 0)
+        {
+            continue;
+        }
+
+        bpi_c_gpio::output_gpio(physToGpio_BPI_M2U[test_disc], BPI_LOW);
+        for (unsigned int x = 0; x < buff_size; x++)
+        {
+
+            for (unsigned int i = 0; i < RPI_DISC_COUNT; i++)
+            {
+                if (i == test_disc)
+                {
+                    printf("!!!!!!!!!!! SKIPPING %d\n",test_disc);
+                    continue;
+                }
+                int disc =physToGpio_BPI_M2U[i];
+                if (disc >= 0)
+                {
+                    printf("*********Output pin %d as gpio %d [%X]\n", i, disc, disc);
+                    bpi_c_gpio::output_gpio(disc, BPI_LOW);
+                }
+            }
+
+            usleep(500000);
+
+            for (unsigned int i = 0; i < RPI_DISC_COUNT; i++)
+            {
+                if (i == test_disc)
+                {
+                    printf("!!!!!!!!!!! SKIPPING %d\n",test_disc);
+                    continue;
+                }
+                int disc = physToGpio_BPI_M2U[i];
+                if (disc >= 0)
+                {
+                    printf("'''''''''''''Setup pin %d as gpio %d [%X]\n", i, disc, disc);
+                    bpi_c_gpio::output_gpio(disc, BPI_HIGH);
+                }
+            }
+            usleep(500000);
+
+        }
+    }
+    exit(0);
+
+    // // GPIO Initialization
+    // bus = new GPIOBUS();
+    // if (!bus->Init())
+    // {
+    //     LOGERROR("Unable to intiailize the GPIO bus. Exiting....");
+    //     return false;
+    // }
+
+    // // Bus Reset
+    // bus->Reset();
 
     // Other
     running = false;

@@ -66,4 +66,4 @@ class bpi_c_gpio {
 #define D
 #endif
 
-#define lemakerDebug 1
+#define lemakerDebug 0
