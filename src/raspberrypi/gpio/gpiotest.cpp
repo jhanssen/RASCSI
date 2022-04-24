@@ -77,11 +77,11 @@ double diff_timespec(const struct timespec *time1, const struct timespec *time0)
 void test_system_delay_sleepusec(){
     struct timespec start_time, stop_time;
 
-    clock_gettime(CLOCK_REALTIME, &start_time);
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
     SysTimer::SleepNsec(100);
-    clock_gettime(CLOCK_REALTIME, &stop_time);
+    clock_gettime(CLOCK_MONOTONIC, &stop_time);
 
-    LOGINFO("Time differnce = %f", diff_timespec(&stop_time, &start_time));
+    LOGINFO("%ld %ld Time differnce = %f", start_time.tv_nsec, stop_time.tv_nsec, diff_timespec(&stop_time, &start_time));
 }
 
 
@@ -91,8 +91,9 @@ void test_system_delay()
 	// System timer
     LOGINFO("SysTimer::Init()");
 	SysTimer::Init();
+    exit(0);
 
-// test_system_delay_sleepusec();
+ test_system_delay_sleepusec();
 
 //     LOGINFO("SysTimer::SleepNsec()");
 //     SysTimer::SleepNsec(100);
@@ -100,16 +101,16 @@ void test_system_delay()
 
     #define COUNT 100
     DWORD times_low[COUNT];
-    DWORD times_high[COUNT];
+//    DWORD times_high[COUNT];
     for(int i=0 ; i<COUNT; i++){
         times_low[i] = SysTimer::GetTimerLow();
-        times_high[i] = SysTimer::GetTimerHigh();
+  //      times_high[i] = SysTimer::GetTimerHigh();
         usleep(100);
     }
 
     printf("Times:  ");
     for(int i=0; i<COUNT; i++){
-        printf("%d:%d  ", times_high[i], times_low[i]);
+        printf("%f  ", (times_low[i]/(100.0*1000.0)));
     }
     printf("\n\n\n");
 

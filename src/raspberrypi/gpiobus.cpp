@@ -109,10 +109,10 @@ BOOL GPIOBUS::setup_raspberry_pi(void* map, int fd){
 	pads = (DWORD *)map;
 	pads += PADS_OFFSET / sizeof(DWORD);
 
-	// System timer
-	SysTimer::Init(
-		(DWORD *)map + SYST_OFFSET / sizeof(DWORD),
-		(DWORD *)map + ARMT_OFFSET / sizeof(DWORD));
+	// // System timer
+	// SysTimer::Init(
+	// 	(DWORD *)map + SYST_OFFSET / sizeof(DWORD),
+	// 	(DWORD *)map + ARMT_OFFSET / sizeof(DWORD));
 
 	// Interrupt controller
 	irpctl = (DWORD *)map;
@@ -150,10 +150,10 @@ BOOL GPIOBUS::setup_banana_pi(void* map, int fd){
 	pads = (DWORD *)map;
 	pads += PADS_OFFSET / sizeof(DWORD);
 
-	// System timer
-	SysTimer::Init(
-		(DWORD *)map + SYST_OFFSET / sizeof(DWORD),
-		(DWORD *)map + ARMT_OFFSET / sizeof(DWORD));
+	// // System timer
+	// SysTimer::Init(
+	// 	(DWORD *)map + SYST_OFFSET / sizeof(DWORD),
+	// 	(DWORD *)map + ARMT_OFFSET / sizeof(DWORD));
 
 	// Interrupt controller
 	irpctl = (DWORD *)map;
