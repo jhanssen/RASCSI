@@ -140,7 +140,7 @@ SRC_SASIDUMP = \
 	rascsi_version.cpp
 
 vpath %.h ./ ./controllers ./devices ./monitor
-vpath %.cpp ./ ./controllers ./devices ./monitor
+vpath %.cpp ./ ./controllers ./devices ./monitor ./devices/bincue
 vpath %.o ./$(OBJDIR)
 vpath ./$(BINDIR)
 
