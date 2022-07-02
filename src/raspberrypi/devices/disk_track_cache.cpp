@@ -90,10 +90,12 @@ bool DiskTrack::Load(const Filepath& path)
 
 	// Calculate offset (previous tracks are considered to hold 256 sectors)
 	off_t offset = ((off_t)dt.track << 8);
+        bool direct = true;
 	if (dt.raw) {
 		ASSERT(dt.size == 11);
 		offset *= 0x930;
 		offset += 0x10;
+                direct = false; // O_DIRECT has alignment requirements that won't be satisified with a 16 byte offset and a 2352 sector size
 	} else {
 		offset <<= dt.size;
 	}
@@ -149,9 +151,15 @@ bool DiskTrack::Load(const Filepath& path)
 
 	// Read from File
 	Fileio fio;
+        if (direct) {
 	if (!fio.OpenDIO(path, Fileio::ReadOnly)) {
 		return false;
 	}
+        } else {
+            if (!fio.Open(path, Fileio::ReadOnly)) {
+                return false;
+            }
+        }
 	if (dt.raw) {
 		// Split Reading
 		for (int i = 0; i < dt.sectors; i++) {
