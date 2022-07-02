@@ -1192,8 +1192,8 @@ int Disk::Read(const DWORD *cdb, BYTE *buf, uint64_t block)
 	}
 
 	// Error if the total number of blocks is exceeded
-	if (block >= disk.blocks) {
-		SetStatusCode(STATUS_INVALIDLBA);
+        if (block >= disk.totalBlocks) {
+                SetStatusCode(STATUS_INVALIDLBA);
 		return 0;
 	}
 
@@ -1221,8 +1221,8 @@ int Disk::WriteCheck(DWORD block)
 	}
 
 	// Error if the total number of blocks is exceeded
-	if (block >= disk.blocks) {
-		LOGDEBUG("WriteCheck failed (capacity exceeded)");
+        if (block >= disk.totalBlocks) {
+                LOGINFO("WriteCheck failed (capacity exceeded)");
 		return 0;
 	}
 
@@ -1364,7 +1364,7 @@ void Disk::ReadCapacity10(SASIDEV *controller)
 		return;
 	}
 
-	if (disk.blocks <= 0) {
+        if (disk.totalBlocks <= 0) {
 		controller->Error(ERROR_CODES::sense_key::ILLEGAL_REQUEST, ERROR_CODES::asc::MEDIUM_NOT_PRESENT);
 
 		LOGWARN("%s Capacity not available, medium may not be present", __PRETTY_FUNCTION__);
@@ -1372,8 +1372,8 @@ void Disk::ReadCapacity10(SASIDEV *controller)
 		return;
 	}
 
-	// Create end of logical block address (disk.blocks-1)
-	uint32_t blocks = disk.blocks - 1;
+        // Create end of logical block address (disk.totalBlocks-1)
+        uint32_t blocks = disk.totalBlocks - 1;
 	buf[0] = (BYTE)(blocks >> 24);
 	buf[1] = (BYTE)(blocks >> 16);
 	buf[2] = (BYTE)(blocks >> 8);
@@ -1398,13 +1398,13 @@ void Disk::ReadCapacity16(SASIDEV *controller)
 
 	memset(buf, 0, 14);
 
-	if (!CheckReady() || disk.blocks <= 0) {
+        if (!CheckReady() || disk.totalBlocks <= 0) {
 		controller->Error(ERROR_CODES::sense_key::ILLEGAL_REQUEST, ERROR_CODES::asc::MEDIUM_NOT_PRESENT);
 		return;
 	}
 
-	// Create end of logical block address (disk.blocks-1)
-	uint64_t blocks = disk.blocks - 1;
+        // Create end of logical block address (disk.totalBlocks-1)
+        uint64_t blocks = disk.totalBlocks - 1;
 	buf[0] = (BYTE)(blocks >> 56);
 	buf[1] = (BYTE)(blocks >> 48);
 	buf[2] = (BYTE)(blocks >> 40);
@@ -1754,5 +1754,15 @@ uint64_t Disk::GetBlockCount() const
 
 void Disk::SetBlockCount(uint32_t blocks)
 {
-	disk.blocks = blocks;
+    disk.totalBlocks = disk.blocks = blocks;
+}
+
+void Disk::SetTotalBlockCount(uint32_t blocks)
+{
+    disk.totalBlocks = blocks;
+}
+
+void Disk::SetImageOffset(off_t off)
+{
+    disk.image_offset = off;
 }

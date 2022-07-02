@@ -50,7 +50,8 @@ private:
 	typedef struct {
 		uint32_t size;							// Sector Size (8=256, 9=512, 10=1024, 11=2048, 12=4096)
 		// TODO blocks should be a 64 bit value in order to support higher capacities
-		uint32_t blocks;						// Total number of sectors
+            uint32_t blocks;						// Total number of sectors
+            uint32_t totalBlocks;
 		DiskCache *dcache;						// Disk cache
 		off_t image_offset;						// Offset to actual data
 	} disk_t;
@@ -140,7 +141,9 @@ public:
 	void SetGeometries(const map<uint64_t, Geometry>&);
 	bool SetGeometryForCapacity(uint64_t);
 	uint64_t GetBlockCount() const;
-	void SetBlockCount(uint32_t);
+    void SetBlockCount(uint32_t);
+    void SetTotalBlockCount(uint32_t);
+    void SetImageOffset(off_t);
 	bool CheckBlockAddress(SASIDEV *, access_mode);
 	bool GetStartAndCount(SASIDEV *, uint64_t&, uint32_t&, access_mode);
 	bool CheckReady();
