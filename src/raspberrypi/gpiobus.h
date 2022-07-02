@@ -14,6 +14,8 @@
 
 #include "rascsi.h"
 #include "scsi.h"
+#include <vector>
+#include <functional>
 
 //---------------------------------------------------------------------------
 //
@@ -584,6 +586,9 @@ public:
 	void ClearSelectEvent();
 										// Clear SEL signal event
 #endif	// USE_SEL_EVENT_ENABLE
+    void addFileDescriptor(int fd, std::function<void()>&& func);
+
+    static GPIOBUS* instance() { return GPIOBUS::Instance; }
 
 private:
 	// SCSI I/O signal control
@@ -664,7 +669,10 @@ private:
 	DWORD tblDatSet[256];				// Table setting table
 #endif
 
+    std::vector<std::pair<int, std::function<void()>>> fileDescriptors;
+
 	static const int SignalTable[19];	// signal table
+    static GPIOBUS* Instance;
 };
 
 //===========================================================================

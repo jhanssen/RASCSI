@@ -77,6 +77,8 @@ DWORD bcm_host_get_peripheral_address(void)
 }
 #endif	// __NetBSD__
 
+GPIOBUS* GPIOBUS::Instance = nullptr;
+
 GPIOBUS::GPIOBUS()
 {
 	actmode = TARGET;
@@ -90,10 +92,25 @@ GPIOBUS::GPIOBUS()
 	qa7regs = 0;
 	signals = 0;
 	rpitype = 0;
+        Instance = this;
 }
 
 GPIOBUS::~GPIOBUS()
 {
+    ASSERT(Instance == this);
+    Instance = nullptr;
+}
+
+void GPIOBUS::addFileDescriptor(int fd, std::function<void()>&& func)
+{
+    fileDescriptors.push_back(std::make_pair(fd, std::move(func)));
+#ifdef USE_SEL_EVENT_ENABLE
+    struct epoll_event ev;
+    memset(&ev, 0, sizeof(ev));
+    ev.events = EPOLLIN;
+    ev.data.fd = fd;
+    epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &ev);
+#endif
 }
 
 BOOL GPIOBUS::Init(mode_e mode)
@@ -1160,22 +1177,50 @@ int GPIOBUS::SendHandShake(BYTE *buf, int count, int delay_after_bytes)
 //---------------------------------------------------------------------------
 int GPIOBUS::PollSelectEvent()
 {
-	// clear errno
-	errno = 0;
-	struct epoll_event epev;
+        struct epoll_event epev;
 	struct gpioevent_data gpev;
 
-	if (epoll_wait(epfd, &epev, 1, -1) <= 0) {
+        for (;;) {
+            // clear errno
+            errno = 0;
+
+            int eres;
+            do {
+                eres = epoll_wait(epfd, &epev, 1, -1);
+            } while (eres == -1 && errno == EINTR);
+            if (eres <= 0) {
                 LOGWARN("%s epoll_wait failed", __PRETTY_FUNCTION__);
-		return -1;
-	}
+                return -1;
+            }
 
-	if (read(selevreq.fd, &gpev, sizeof(gpev)) < 0) {
-            LOGWARN("%s read failed", __PRETTY_FUNCTION__);
-            return -1;
+            if (epev.data.fd == selevreq.fd) {
+                do {
+                    eres = read(epev.data.fd, &gpev, sizeof(gpev));
+                } while (eres == -1 && errno == EINTR);
+                if (eres < 0) {
+                    LOGWARN("%s read failed", __PRETTY_FUNCTION__);
+                    return -1;
+                }
+
+                return 0;
+            } else {
+                do {
+                    eres = read(epev.data.fd, &gpev, sizeof(gpev));
+                } while (eres == -1 && errno == EINTR);
+                if (eres < 0 && errno != EAGAIN) {
+                    LOGWARN("%s read failed", __PRETTY_FUNCTION__);
+                    return -1;
+                }
+
+                // find in fileDescriptors
+                for (auto& fd : fileDescriptors) {
+                    if (epev.data.fd == fd.first) {
+                        fd.second();
+                        break;
+                    }
+                }
+            }
         }
-
-	return 0;
 }
 
 //---------------------------------------------------------------------------
