@@ -22,4 +22,9 @@ public:
 
 	virtual void ReadToc(SASIDEV *) = 0;
 	virtual void GetEventStatusNotification(SASIDEV *) = 0;
+    virtual void ReadSubChannel(SASIDEV *) = 0;
+    virtual void PlayAudioMSF(SASIDEV *) = 0;
+    virtual void PlayAudioIndex(SASIDEV *) = 0;
+    virtual void PauseResume(SASIDEV *) = 0;
+    virtual void StopPlayScan(SASIDEV *) = 0;
 };
