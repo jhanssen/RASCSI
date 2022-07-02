@@ -103,13 +103,36 @@ bool Disk::Dispatch(SCSIDEV *controller)
 	if (commands.count(static_cast<SCSIDEV::scsi_command>(ctrl->cmd[0]))) {
 		command_t *command = commands[static_cast<SCSIDEV::scsi_command>(ctrl->cmd[0])];
 
-		LOGDEBUG("%s Executing %s ($%02X)", __PRETTY_FUNCTION__, command->name, (unsigned int)ctrl->cmd[0]);
+                LOGINFO("%s Executing %s ($%02X)", __PRETTY_FUNCTION__, command->name, (unsigned int)ctrl->cmd[0]);
 
 		(this->*command->execute)(controller);
+
+                if (ctrl->length > 0) {
+                    LOGINFO("DISK sending data %d", ctrl->length);
+                    char buf[65];
+                    uint32_t len = ctrl->length;
+                    uint32_t pos = 0, start = 0, num = 0;
+                    while (len > 0) {
+                        if (pos + 3 > 64) {
+                            buf[pos] = '\0';
+                            LOGINFO("0x%02x %s", start, buf);
+                            start += pos;
+                            pos = 0;
+                        }
+                        sprintf(buf + pos, "%02x ", ctrl->buffer[num++]);
+                        pos += 3;
+                        --len;
+                    }
+                    if (pos > 0) {
+                        buf[pos] = '\0';
+                        LOGINFO("0x%02x %s", start, buf);
+                    }
+                }
 
 		return true;
 	}
 
+        LOGINFO("dipatch, unknown command %d", ctrl->cmd[0]);
 	// Unknown command
 	return false;
 }
