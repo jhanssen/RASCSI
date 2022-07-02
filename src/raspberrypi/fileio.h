@@ -59,6 +59,7 @@ public:
 	off_t GetFilePos() const;
 	void Close();
 	BOOL IsValid() const		{ return (BOOL)(handle != -1); }
+    int Handle() const { return handle; }
 
 private:
 	BOOL Open(const char *fname, OpenMode mode, BOOL directIO);
