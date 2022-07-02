@@ -37,7 +37,8 @@ public:
 	void Clear();
 	void SetPath(const char *path);		// File settings (user) for MBCS
 	const char *GetPath() const	{ return m_szPath; }	// Get path name
-	const char *GetFileExt() const;		// Get short name (LPCTSTR)
+    const char *GetDir() const	{ return m_szDir; }	// Get dir name
+    const char *GetFileExt() const { return m_szExt; }		// Get short name (LPCTSTR)
 	BOOL Save(Fileio *fio, int ver);
 	BOOL Load(Fileio *fio, int ver);
 
@@ -47,6 +48,4 @@ private:
 	TCHAR m_szDir[_MAX_DIR];			// Directory
 	TCHAR m_szFile[_MAX_FNAME];			// File
 	TCHAR m_szExt[_MAX_EXT];			// Extension
-
-	static TCHAR FileExt[_MAX_FNAME + _MAX_DIR];	// Short name (TCHAR)
 };

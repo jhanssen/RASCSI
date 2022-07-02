@@ -102,22 +102,6 @@ void Filepath::Split()
 	free(pBase);
 }
 
-//---------------------------------------------------------------------------
-//
-//	File name + extension acquisition
-//	The returned pointer is temporary. Copy immediately.
-//
-//---------------------------------------------------------------------------
-const char *Filepath::GetFileExt() const
-{
-
-	// Merge into static buffer
-	strcpy(FileExt, m_szExt);
-
-	// Return as LPCTSTR
-	return (const char *)FileExt;
-}
-
 BOOL Filepath::Save(Fileio *fio, int /*ver*/)
 {
 	ASSERT(fio);
@@ -131,10 +115,3 @@ BOOL Filepath::Load(Fileio *fio, int /*ver*/)
 
 	return TRUE;
 }
-
-//---------------------------------------------------------------------------
-//
-//	Filename and extension
-//
-//---------------------------------------------------------------------------
-TCHAR Filepath::FileExt[_MAX_FNAME + _MAX_DIR];
