@@ -1216,11 +1216,11 @@ void SASIDEV::FlushUnit()
 	ASSERT(ctrl.phase == BUS::dataout);
 
 	// Logical Unit
-	DWORD lun = GetEffectiveLun();
-	if (!ctrl.unit[lun]) {
-		return;
-	}
-	Disk *device = ctrl.unit[lun];
+        // DWORD lun = GetEffectiveLun();
+        // if (!ctrl.unit[lun]) {
+        //         return;
+        // }
+        // Disk *device = ctrl.unit[lun];
 
 	// WRITE system only
 	switch ((SASIDEV::sasi_command)ctrl.cmd[0]) {
@@ -1232,8 +1232,9 @@ void SASIDEV::FlushUnit()
 		case SASIDEV::eCmdVerify16:
 			break;
 
-		case SASIDEV::eCmdModeSelect6:
-		case SASIDEV::eCmdModeSelect10:
+                case SASIDEV::eCmdModeSelect6:
+        case SASIDEV::eCmdModeSelect10:
+            /*
             // Debug code related to Issue #2 on github, where we get an unhandled Mode Select when
             // the mac is rebooted
             // https://github.com/akuker/RASCSI/issues/2
@@ -1253,7 +1254,7 @@ void SASIDEV::FlushUnit()
 				// MODE SELECT failed
 				LOGWARN("Error occured while processing Mode Select command %02X\n", (unsigned char)ctrl.cmd[0]);
 				return;
-			}
+                                }*/
             break;
 
 		case SASIDEV::eCmdSetMcastAddr:
